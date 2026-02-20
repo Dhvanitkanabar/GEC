@@ -1,0 +1,114 @@
+/* ======= KPI Header – Clean Professional ======= */
+
+.kpi-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 20px;
+    background: rgba(10, 14, 20, 0.95);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.kpi-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.kpi-brand {
+    font-size: 14px;
+    font-weight: 700;
+    color: #e0e4ec;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.kpi-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 10px;
+    border: 1px solid;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Metrics */
+.kpi-metrics {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.kpi-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+}
+
+.kpi-val {
+    font-size: 12px;
+    font-weight: 700;
+    color: #c0c6d0;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.kpi-lbl {
+    font-size: 8px;
+    color: #5a6278;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kpi-sep {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* Controls */
+.kpi-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kpi-btn {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    color: #5a6278;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.kpi-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #9ca3b0;
+}
+
+.kpi-btn.on {
+    color: #2ecc71;
+    border-color: rgba(46, 204, 113, 0.2);
+    background: rgba(46, 204, 113, 0.05);
+}
+
+@media (max-width: 768px) {
+    .kpi-header {
+        padding: 6px 12px;
+        gap: 10px;
+    }
+
+    .kpi-metrics {
+        display: none;
+    }
+}
