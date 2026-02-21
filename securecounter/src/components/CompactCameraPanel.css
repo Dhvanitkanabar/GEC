@@ -1,0 +1,323 @@
+/* ======= Compact Camera Panel ======= */
+
+.compact-cam {
+    background: rgba(10, 14, 20, 0.88);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 191, 255, 0.12);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 260px;
+    max-width: 420px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.compact-cam.anomaly {
+    border-color: #ff2244;
+    box-shadow: 0 0 18px rgba(255, 34, 68, 0.35), inset 0 0 20px rgba(255, 34, 68, 0.04);
+    animation: ccFlash 0.8s infinite;
+}
+
+@keyframes ccFlash {
+
+    0%,
+    100% {
+        border-color: #ff2244;
+    }
+
+    50% {
+        border-color: #ff6644;
+    }
+}
+
+/* ---- Header ---- */
+.cc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(0, 191, 255, 0.08);
+    background: rgba(0, 16, 32, 0.5);
+    flex-shrink: 0;
+}
+
+.cc-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #ccd2dc;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    letter-spacing: 0.3px;
+}
+
+.cc-icon {
+    font-size: 13px;
+}
+
+.cc-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cc-alert-badge {
+    font-size: 9px;
+    font-weight: 700;
+    color: #ff4444;
+    background: rgba(255, 68, 68, 0.1);
+    border: 1px solid rgba(255, 68, 68, 0.3);
+    padding: 2px 8px;
+    border-radius: 10px;
+    letter-spacing: 0.3px;
+}
+
+.cc-alert-badge.pulse {
+    animation: alertPulse 0.6s infinite;
+}
+
+@keyframes alertPulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.65;
+        transform: scale(1.05);
+    }
+}
+
+.cc-count-badge {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ff2244;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 8px rgba(255, 34, 68, 0.5);
+}
+
+/* ---- Feed area ---- */
+.cc-feed {
+    flex: 1;
+    position: relative;
+    background: #050810;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.cc-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cc-video.hidden {
+    display: none;
+}
+
+.cc-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* Anomaly text */
+.cc-anomaly-text {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 0, 0, 0.18);
+    backdrop-filter: blur(3px);
+    border: 1px solid rgba(255, 34, 68, 0.5);
+    border-radius: 6px;
+    padding: 5px 14px;
+    z-index: 5;
+    animation: ccPulseText 0.8s infinite;
+}
+
+.cc-anomaly-text span {
+    color: #ff4444;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(255, 68, 68, 0.7);
+    white-space: nowrap;
+}
+
+@keyframes ccPulseText {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Error */
+.cc-error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(10, 14, 20, 0.95);
+    z-index: 10;
+}
+
+.cc-err-icon {
+    font-size: 28px;
+    opacity: 0.35;
+}
+
+.cc-err-msg {
+    font-size: 11px;
+    color: #8890a4;
+    text-align: center;
+    max-width: 260px;
+    line-height: 1.4;
+}
+
+/* Connecting */
+.cc-connecting {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(10, 14, 20, 0.95);
+    color: #00bfff;
+    font-size: 11px;
+    z-index: 10;
+}
+
+.cc-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid rgba(0, 191, 255, 0.15);
+    border-top-color: #00bfff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Status overlay (top-right) */
+.cc-status-overlay {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 4;
+}
+
+.cc-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 2px 7px;
+    border-radius: 8px;
+    font-size: 8px;
+    font-weight: 700;
+    color: #ccd2dc;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.cc-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+}
+
+.cc-dot.green {
+    background: #44ff88;
+    box-shadow: 0 0 4px rgba(68, 255, 136, 0.6);
+}
+
+.cc-dot.red {
+    background: #ff4444;
+    box-shadow: 0 0 4px rgba(255, 68, 68, 0.6);
+    animation: dotBlink 0.6s infinite;
+}
+
+@keyframes dotBlink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}
+
+/* ---- Footer bar ---- */
+.cc-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+    border-top: 1px solid rgba(0, 191, 255, 0.08);
+    background: rgba(0, 8, 16, 0.6);
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+    gap: 6px;
+}
+
+.cc-ts {
+    color: #00bfff;
+}
+
+.cc-lat {
+    color: #8890a4;
+}
+
+.cc-fps {
+    color: #44ff88;
+    font-weight: 700;
+}
+
+.cc-cam-status {
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.cc-cam-status.connected {
+    color: #44ff88;
+}
+
+.cc-cam-status.error {
+    color: #ff4444;
+}
+
+.cc-cam-status.connecting {
+    color: #00bfff;
+}

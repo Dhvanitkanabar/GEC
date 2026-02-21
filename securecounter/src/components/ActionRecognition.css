@@ -1,0 +1,103 @@
+/* ======= Action Recognition – Clean ======= */
+
+.action-panel {
+    background: #0e1218;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.head-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3b0;
+    letter-spacing: 0.3px;
+}
+
+.action-list {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.action-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.action-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.action-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: #c0c6d0;
+}
+
+.action-badge {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 2px 8px;
+    border-radius: 8px;
+}
+
+.action-badge.safe {
+    color: #2ecc71;
+    background: rgba(46, 204, 113, 0.08);
+}
+
+.action-badge.review {
+    color: #f39c12;
+    background: rgba(243, 156, 18, 0.08);
+}
+
+.action-badge.suspicious {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.08);
+}
+
+.action-bar-bg {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.action-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+}
+
+.action-bar-fill.safe {
+    background: #2ecc71;
+}
+
+.action-bar-fill.review {
+    background: #f39c12;
+}
+
+.action-bar-fill.suspicious {
+    background: #e74c3c;
+}
+
+.action-pct {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #5a6278;
+    align-self: flex-end;
+}
