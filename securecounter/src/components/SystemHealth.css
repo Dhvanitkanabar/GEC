@@ -1,0 +1,124 @@
+.health-panel {
+    overflow: hidden;
+}
+
+.health-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 10px;
+}
+
+.health-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: rgba(10, 15, 25, 0.5);
+    border-radius: 6px;
+    border: 1px solid rgba(0, 191, 255, 0.05);
+}
+
+.health-item.metric {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-dot.green {
+    background: #44ff88;
+    box-shadow: 0 0 6px rgba(68, 255, 136, 0.5);
+}
+
+.status-dot.yellow {
+    background: #ffbb33;
+    box-shadow: 0 0 6px rgba(255, 187, 51, 0.5);
+    animation: blinkDot 1s infinite;
+}
+
+@keyframes blinkDot {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}
+
+.health-label {
+    font-size: 9px;
+    color: #5a6278;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.health-value {
+    font-size: 10px;
+    color: #ccd2dc;
+    font-weight: 600;
+    text-transform: capitalize;
+    margin-left: auto;
+}
+
+.health-value.mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 800;
+    margin-left: 0;
+}
+
+.health-value.blue {
+    color: #00bfff;
+}
+
+.health-value.red {
+    color: #ff4444;
+}
+
+.health-value.green-text {
+    color: #44ff88;
+}
+
+.health-value.yellow-text {
+    color: #ffbb33;
+}
+
+.health-warning {
+    margin: 0 10px 10px;
+    padding: 8px 12px;
+    background: rgba(255, 180, 0, 0.08);
+    border: 1px solid rgba(255, 180, 0, 0.25);
+    border-radius: 6px;
+    color: #ffbb33;
+    font-size: 11px;
+    font-weight: 600;
+    animation: slideInWarning 0.3s ease;
+}
+
+@keyframes slideInWarning {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 900px) {
+    .health-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
