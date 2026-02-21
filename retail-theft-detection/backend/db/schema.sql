@@ -123,7 +123,8 @@ CREATE TABLE IF NOT EXISTS camera_events (
     'hand_to_pocket', 'hand_hovering_drawer',
     'drawer_opened_no_pos', 'drawer_forced_open',
     'suspicious_gesture', 'normal',
-    'customer_present', 'no_customer'
+    'customer_present', 'no_customer',
+    'currency_anomaly', 'cash_picked', 'cash_picked_correct'
   )),
   cashier_id TEXT,
   counter_id TEXT DEFAULT 'counter-1',

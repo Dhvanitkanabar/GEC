@@ -12,7 +12,13 @@ module.exports = function (db) {
     router.get('/', authenticate, (req, res) => {
         try {
             const { source, severity, acknowledged, cashier_id, limit } = req.query;
-            let sql = 'SELECT a.*, u.full_name as cashier_name FROM alerts a LEFT JOIN users u ON a.cashier_id = u.id WHERE 1=1';
+            let sql = `
+                SELECT a.*, u.full_name as cashier_name, ce.frame_path as clip_path
+                FROM alerts a 
+                LEFT JOIN users u ON a.cashier_id = u.id 
+                LEFT JOIN camera_events ce ON a.camera_event_id = ce.id
+                WHERE 1=1
+            `;
             const params = [];
 
             if (source) { sql += ' AND a.source = ?'; params.push(source); }
@@ -33,8 +39,10 @@ module.exports = function (db) {
     // GET /api/alerts/unacknowledged — latest unacknowledged
     router.get('/unacknowledged', authenticate, (req, res) => {
         const alerts = db.prepare(`
-      SELECT a.*, u.full_name as cashier_name 
-      FROM alerts a LEFT JOIN users u ON a.cashier_id = u.id
+      SELECT a.*, u.full_name as cashier_name, ce.frame_path as clip_path
+      FROM alerts a 
+      LEFT JOIN users u ON a.cashier_id = u.id
+      LEFT JOIN camera_events ce ON a.camera_event_id = ce.id
       WHERE a.acknowledged = 0 ORDER BY a.created_at DESC LIMIT 50
     `).all();
         res.json(alerts);

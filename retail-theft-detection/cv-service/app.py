@@ -1,7 +1,3 @@
-"""
-Retail Theft Detection — Flask CV Service
-MJPEG streaming, event detection, and alert forwarding to backend.
-"""
 import cv2
 import numpy as np
 import time
@@ -9,6 +5,7 @@ import json
 import threading
 import requests
 import os
+from collections import deque
 from flask import Flask, Response, jsonify, request
 from detector import TheftDetector
 
@@ -24,160 +21,218 @@ def add_cors(response):
 
 # ─── Configuration ─────────────────────────────────────
 BACKEND_URL = 'http://localhost:5000'
-CAMERA_INDEX = 0  # 0 = default webcam
+BUFFER_SECONDS = 20
+FPS_FOR_BUFFER = 10
+MAX_BUFFER_SIZE = BUFFER_SECONDS * FPS_FOR_BUFFER
+
+def find_working_camera():
+    """Find the first available camera index."""
+    for i in range(5):
+        cap = cv2.VideoCapture(i)
+        if cap.isOpened():
+            ret, frame = cap.read()
+            if ret:
+                cap.release()
+                print(f"[OK] Found working camera at index {i}")
+                return i
+            cap.release()
+    return None  # No camera found
+
+def make_offline_frame(message="Camera Offline"):
+    """Generate a blank 'camera offline' frame so MJPEG stream never blocks."""
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    frame[:] = (20, 20, 30)
+    cv2.putText(frame, message, (160, 220),
+        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (80, 80, 100), 2)
+    cv2.putText(frame, time.strftime('%H:%M:%S'), (260, 270),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (60, 60, 80), 1)
+    cv2.putText(frame, 'RetailGuard Monitoring', (170, 310),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (50, 70, 100), 1)
+    return frame
 
 # ─── Global State ──────────────────────────────────────
+print("[INFO] Scanning for cameras...")
+camera_index = find_working_camera()
+if camera_index is not None:
+    print(f"[INFO] Default camera_index: {camera_index}")
+else:
+    print("[WARN] No physical camera found. Will serve offline frames.")
+
 detector = TheftDetector()
 camera = None
 is_running = False
-latest_frame = None
+latest_frame = make_offline_frame()   # start with offline frame, not None
 detected_events = []
 events_lock = threading.Lock()
-use_simulator = False
+
+frame_buffer = deque(maxlen=MAX_BUFFER_SIZE)
+buffer_lock = threading.Lock()
+camera_lock = threading.Lock()
 
 
 def send_event_to_backend(event):
     """Forward detected event to Node.js backend."""
+    def _send():
+        try:
+            should_record = event.get('risk_score', 0) >= 30 or event.get('event_type') in ('currency_anomaly', 'hand_to_pocket')
+            if should_record:
+                ts = int(time.time() * 1000)
+                clip_name = f'anomaly_{ts}.mp4'
+                threading.Thread(target=save_and_upload_clip, args=(clip_name, event.copy()), daemon=True).start()
+
+            requests.post(f'{BACKEND_URL}/api/camera/events', json=event, timeout=3)
+        except Exception as e:
+            print(f'[WARN] Could not send event: {e}')
+
+    threading.Thread(target=_send, daemon=True).start()
+
+
+def save_and_upload_clip(filename, event):
+    """Save the current buffer to a video file and upload to backend."""
     try:
-        requests.post(f'{BACKEND_URL}/api/camera/events', json=event, timeout=2)
+        temp_path = os.path.join(os.getcwd(), filename)
+        with buffer_lock:
+            frames = list(frame_buffer)
+        if not frames:
+            return
+
+        h, w = frames[0].shape[:2]
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(temp_path, fourcc, FPS_FOR_BUFFER, (w, h))
+        if not out.isOpened():
+            print(f'[WARN] Failed to open VideoWriter for {temp_path}')
+            return
+
+        for f in frames:
+            out.write(f)
+        out.release()
+        print(f'📁 Saved clip: {filename}')
+
+        with open(temp_path, 'rb') as f:
+            files = {'clip': (filename, f, 'video/mp4')}
+            data = {'event_id': event.get('id'), 'filename': filename}
+            requests.post(f'{BACKEND_URL}/api/camera/clips', files=files, data=data, timeout=10)
+        print(f'🚀 Uploaded clip {filename}')
+        os.remove(temp_path)
     except Exception as e:
-        print(f'⚠️  Could not send event to backend: {e}')
+        print(f'[WARN] Clip error: {e}')
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            try: os.remove(temp_path)
+            except: pass
 
 
 def camera_loop():
-    """Main camera capture and processing loop."""
-    global camera, is_running, latest_frame, detected_events, use_simulator
+    """Main camera capture loop — always running, reconnects if camera fails."""
+    global camera, is_running, latest_frame, frame_buffer, camera_index
 
-    if use_simulator:
-        print('📹 Running in SIMULATION mode (no physical camera)')
-        sim_frame_count = 0
+    if camera_index is None:
+        print('[INFO] No camera available — streaming offline frames')
+        frame_num = 0
         while is_running:
-            # Generate simulated frames
-            frame = generate_sim_frame(sim_frame_count)
-            sim_frame_count += 1
-            annotated, events = detector.process_frame(frame)
-            latest_frame = annotated
-
-            if events:
-                with events_lock:
-                    for event in events:
-                        event['timestamp'] = time.strftime('%Y-%m-%dT%H:%M:%S')
-                        detected_events.append(event)
-                        send_event_to_backend(event)
-                        print(f'🚨 Event: {event["event_type"]} (confidence: {event["confidence"]:.2f})')
-
-            time.sleep(1.0 / 15)  # ~15 FPS for simulation
+            latest_frame = make_offline_frame(f"No Camera — Frame {frame_num}")
+            frame_num += 1
+            time.sleep(1.0 / 15)
         return
 
-    # Real camera mode
-    camera = cv2.VideoCapture(CAMERA_INDEX)
-    if not camera.isOpened():
-        print('⚠️  Could not open camera — switching to simulation mode')
-        use_simulator = True
-        camera_loop()
-        return
-
-    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    print(f'📹 Camera opened (index {CAMERA_INDEX})')
+    print(f'[INFO] Opening camera index {camera_index}')
+    consecutive_failures = 0
 
     while is_running:
-        ret, frame = camera.read()
+        # Open (or reopen) camera
+        with camera_lock:
+            if camera is None or not camera.isOpened():
+                cam_idx = find_working_camera()
+                if cam_idx is None:
+                    latest_frame = make_offline_frame("Camera Unavailable")
+                    time.sleep(2)
+                    continue
+                camera_index = cam_idx
+                camera = cv2.VideoCapture(camera_index)
+                camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                print(f'[OK] Camera {camera_index} opened')
+                consecutive_failures = 0
+
+        with camera_lock:
+            ret, frame = camera.read()
+
         if not ret:
-            time.sleep(0.1)
+            consecutive_failures += 1
+            print(f"[WARN] Frame read failed ({consecutive_failures})")
+            latest_frame = make_offline_frame("Camera Read Error")
+            if consecutive_failures >= 5:
+                # Force reopen on next iteration
+                with camera_lock:
+                    if camera:
+                        camera.release()
+                        camera = None
+                consecutive_failures = 0
+            time.sleep(0.5)
             continue
 
+        consecutive_failures = 0
+
+        # Process frame
         annotated, events = detector.process_frame(frame)
         latest_frame = annotated
 
+        # Buffer for clip recording
+        loop_count = getattr(camera_loop, '_count', 0) + 1
+        camera_loop._count = loop_count
+        if loop_count % 3 == 0:
+            with buffer_lock:
+                frame_buffer.append(annotated)
+
+        # Dispatch events
         if events:
-            with events_lock:
-                for event in events:
-                    event['timestamp'] = time.strftime('%Y-%m-%dT%H:%M:%S')
+            for event in events:
+                event['timestamp'] = time.strftime('%Y-%m-%dT%H:%M:%S')
+                with events_lock:
                     detected_events.append(event)
-                    send_event_to_backend(event)
-                    print(f'🚨 Event: {event["event_type"]} (confidence: {event["confidence"]:.2f})')
+                send_event_to_backend(event)
+                print(f'[EVENT] {event["event_type"]} risk={event["risk_score"]}')
 
-        time.sleep(1.0 / 30)  # ~30 FPS
+        # Heartbeat
+        if loop_count % 150 == 0:
+            print(f"[HEARTBEAT] Frame {loop_count}, events captured: {len(detected_events)}")
 
-    if camera:
-        camera.release()
-        print('📹 Camera released')
+        time.sleep(0.01)
 
-
-def generate_sim_frame(frame_num):
-    """Generate a simulated camera frame for testing."""
-    frame = np.zeros((480, 640, 3), dtype=np.uint8)
-
-    # Background gradient
-    for y in range(480):
-        shade = int(30 + (y / 480) * 40)
-        frame[y, :] = (shade, shade + 5, shade + 10)
-
-    # Draw simulated counter / shelf
-    cv2.rectangle(frame, (0, 350), (640, 480), (60, 50, 40), -1)
-
-    # Draw simulated cash drawer
-    drawer_color = (80, 80, 80) if frame_num % 200 < 150 else (120, 120, 120)
-    cv2.rectangle(frame, (180, 310), (460, 420), drawer_color, -1)
-    cv2.putText(frame, 'CASH DRAWER', (220, 370),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (180, 180, 180), 2)
-
-    # Simulate hand movement
-    t = frame_num * 0.05
-    hand_x = int(320 + 180 * np.sin(t))
-    hand_y = int(280 + 100 * np.sin(t * 0.7))
-
-    # Draw simulated hand
-    cv2.circle(frame, (hand_x, hand_y), 15, (180, 160, 140), -1)
-    for angle_offset in range(5):
-        fx = int(hand_x + 20 * np.cos(angle_offset * 0.6 - 0.8))
-        fy = int(hand_y - 18 - angle_offset * 3)
-        cv2.line(frame, (hand_x, hand_y), (fx, fy), (180, 160, 140), 3)
-
-    # Timestamp overlay
-    cv2.putText(frame, f'SIM {time.strftime("%H:%M:%S")}', (480, 30),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 200), 1)
-    cv2.putText(frame, f'Frame: {frame_num}', (480, 55),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (150, 150, 150), 1)
-
-    return frame
+    with camera_lock:
+        if camera:
+            camera.release()
+            camera = None
+    print('[INFO] Camera loop exited')
 
 
 def generate_mjpeg():
-    """Generate MJPEG stream for browser consumption."""
-    while is_running:
-        if latest_frame is not None:
-            ret, buffer = cv2.imencode('.jpg', latest_frame,
-                [cv2.IMWRITE_JPEG_QUALITY, 70])
-            if ret:
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' +
-                       buffer.tobytes() + b'\r\n')
-        time.sleep(1.0 / 20)
+    """Generate MJPEG stream — never blocks, serves offline frame if needed."""
+    while True:
+        frame = latest_frame
+        if frame is None:
+            frame = make_offline_frame()
+        ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 72])
+        if ret:
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' +
+                   buffer.tobytes() + b'\r\n')
+        time.sleep(1.0 / 20)  # 20 FPS stream
 
 
 # ─── API Routes ────────────────────────────────────────
 
 @app.route('/api/cv/start', methods=['POST'])
 def start_feed():
-    """Start the camera feed and detection."""
-    global is_running, use_simulator
+    global is_running
     if is_running:
-        return jsonify({'status': 'already running'}), 200
-
-    data = request.get_json(silent=True) or {}
-    use_simulator = data.get('simulate', False)
-
+        return jsonify({'status': 'already_running'}), 200
     is_running = True
-    thread = threading.Thread(target=camera_loop, daemon=True)
-    thread.start()
-    return jsonify({'status': 'started', 'simulator': use_simulator}), 200
+    threading.Thread(target=camera_loop, daemon=True).start()
+    return jsonify({'status': 'started'}), 200
 
 
 @app.route('/api/cv/stop', methods=['POST'])
 def stop_feed():
-    """Stop the camera feed."""
     global is_running
     is_running = False
     return jsonify({'status': 'stopped'}), 200
@@ -185,30 +240,42 @@ def stop_feed():
 
 @app.route('/api/cv/feed')
 def video_feed():
-    """MJPEG video stream endpoint."""
-    if not is_running:
-        return jsonify({'error': 'Feed not started'}), 400
+    """MJPEG stream — always available even when camera is offline."""
     return Response(generate_mjpeg(),
         mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 @app.route('/api/cv/status')
 def status():
-    """Get current detection status."""
     with events_lock:
         recent = list(detected_events[-10:])
     return jsonify({
         'running': is_running,
-        'simulator': use_simulator,
+        'simulator': False,
         'frame_count': detector.frame_count,
         'recent_events': recent,
-        'total_events': len(detected_events)
+        'total_events': len(detected_events),
+        'expected_change': detector.expected_change,
+        'optimal_notes': detector.optimal_notes,
+        'picked_notes': detector.picked_notes,
+        'camera_index': camera_index,
+    })
+
+
+@app.route('/api/cv/expected-change', methods=['POST'])
+def set_expected_change():
+    data = request.get_json()
+    amount = data.get('amount', 0)
+    detector.set_expected_change(amount)
+    return jsonify({
+        'status': 'ok',
+        'expected_change': amount,
+        'optimal_notes': detector.optimal_notes
     })
 
 
 @app.route('/api/cv/events')
 def get_events():
-    """Get all detected events."""
     with events_lock:
         limit = request.args.get('limit', 50, type=int)
         events_list = list(detected_events[-limit:])
@@ -217,27 +284,23 @@ def get_events():
 
 @app.route('/api/cv/snapshot')
 def snapshot():
-    """Capture current frame as JPEG."""
-    if latest_frame is None:
-        return jsonify({'error': 'No frame available'}), 400
-    ret, buffer = cv2.imencode('.jpg', latest_frame)
+    frame = latest_frame or make_offline_frame()
+    ret, buffer = cv2.imencode('.jpg', frame)
     if ret:
         return Response(buffer.tobytes(), mimetype='image/jpeg')
-    return jsonify({'error': 'Failed to encode frame'}), 500
+    return jsonify({'error': 'Failed to encode'}), 500
 
 
 @app.route('/api/cv/health')
 def health():
-    return jsonify({'status': 'ok', 'service': 'cv-service'})
+    return jsonify({'status': 'ok', 'service': 'cv-service', 'camera_index': camera_index})
 
 
 # ─── Entry Point ───────────────────────────────────────
 if __name__ == '__main__':
-    print('🔬 Retail Theft Detection — CV Service')
-    print('   Endpoints:')
-    print('   POST /api/cv/start  — Start camera feed')
-    print('   POST /api/cv/stop   — Stop camera feed')
-    print('   GET  /api/cv/feed   — MJPEG stream')
-    print('   GET  /api/cv/status — Detection status')
-    print('')
+    # Always start camera loop at startup
+    is_running = True
+    t = threading.Thread(target=camera_loop, daemon=True)
+    t.start()
+    print(f"🚀 CV Service starting on :5001  (camera={camera_index})")
     app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)

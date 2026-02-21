@@ -16,15 +16,28 @@ async function request(path, options = {}) {
     if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
     const res = await fetch(url, { ...options, headers });
+
     if (res.status === 401) {
         sessionStorage.removeItem('auth_token');
         sessionStorage.removeItem('auth_user');
         window.location.reload();
         throw new Error('Unauthorized');
     }
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Request failed');
-    return data;
+
+    // Try to parse JSON; if not JSON, fall back to text
+    let data, text;
+    try {
+        data = await res.json();
+    } catch (e) {
+        try { text = await res.text(); } catch { text = null; }
+    }
+
+    if (!res.ok) {
+        const errMsg = (data && data.error) || text || 'Request failed';
+        throw new Error(errMsg);
+    }
+
+    return data === undefined ? text : data;
 }
 
 const api = {
@@ -145,10 +158,19 @@ const api = {
         });
     },
     async cvStop() { return request(`${CV_BASE}/stop`, { method: 'POST' }); },
+    async setExpectedChange(amount) {
+        return request(`${CV_BASE}/expected-change`, {
+            method: 'POST',
+            body: JSON.stringify({ amount })
+        });
+    },
     async cvStatus() {
         try { return await request(`${CV_BASE}/status`); }
         catch { return null; }
     },
 };
+
+// Base URL for constructing absolute links (clips, downloads). Empty when using dev proxy.
+api.baseUrl = '';
 
 export default api;

@@ -134,7 +134,7 @@ export default function CashierBillingTab({ user }) {
             }
             await api.onlinePayment(txn.id);
             playBeep('success');
-            setSuccess(`✅ Online payment completed! Bill: $${total.toFixed(2)}. Drawer NOT opened.`);
+            setSuccess(`✅ Online payment completed! Bill: ₹${total.toFixed(2)}. Drawer NOT opened.`);
             setCart([]);
             setStep('browse');
             loadHistory();
@@ -189,6 +189,8 @@ export default function CashierBillingTab({ user }) {
             const change = Math.round((cashAmt - total) * 100) / 100;
             setChangeAmount(change);
             setDrawerBalance(result.drawer_balance);
+            // Tell CV service the expected change so it monitors correct note-picking
+            try { await api.setExpectedChange(change); } catch { /* CV offline ok */ }
             setStep('change_display');
             playBeep('success');
         } catch (err) {
@@ -324,7 +326,7 @@ export default function CashierBillingTab({ user }) {
                                             >
                                                 <p className="text-sm font-medium text-slate-200 truncate">{product.name}</p>
                                                 <div className="flex items-center justify-between mt-1">
-                                                    <span className="text-lg font-bold text-emerald-400">${product.price.toFixed(2)}</span>
+                                                    <span className="text-lg font-bold text-emerald-400">₹{product.price.toFixed(2)}</span>
                                                     {inCart && (
                                                         <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold">
                                                             ×{inCart.quantity}
@@ -343,7 +345,7 @@ export default function CashierBillingTab({ user }) {
                             <div className="glass-card p-8 text-center">
                                 <h3 className="text-xl font-bold text-white mb-2">Select Payment Method</h3>
                                 <p className="text-slate-400 text-sm mb-6">
-                                    Bill Total: <span className="text-2xl font-bold text-emerald-400">${total.toFixed(2)}</span>
+                                    Bill Total: <span className="text-2xl font-bold text-emerald-400">₹{total.toFixed(2)}</span>
                                 </p>
                                 <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
                                     <button onClick={handleCashSelected} disabled={verifying}

@@ -8,7 +8,7 @@ import api from '../services/api';
  * alerts with beep sounds, forced-drawer alerts, event timeline
  */
 export default function ManagerMonitoringTab({ user }) {
-    const [view, setView] = useState('monitoring'); // monitoring | transactions | drawer | audit
+    const [activeClip, setActiveClip] = useState(null);
     const [alerts, setAlerts] = useState([]);
     const [events, setEvents] = useState([]);
     const [transactions, setTransactions] = useState([]);
@@ -18,9 +18,13 @@ export default function ManagerMonitoringTab({ user }) {
     const [timeline, setTimeline] = useState([]);
     const [cvStatus, setCvStatus] = useState(null);
     const [feedActive, setFeedActive] = useState(false);
-    const [isSimulator, setIsSimulator] = useState(false);
+    const [isSimulator, setIsSimulator] = useState(false); // Default to FALSE (Live)
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState({ event_type: '', status: 'completed' });
+    const [view, setView] = useState('monitoring');
+    const [filter, setFilter] = useState({
+        date: new Date().toISOString().split('T')[0],
+        event_type: ''
+    });
     const lastAlertRef = useRef(null);
 
     const loadData = useCallback(async () => {
@@ -64,6 +68,23 @@ export default function ManagerMonitoringTab({ user }) {
     }, [filter]);
 
     useEffect(() => { loadData(); }, [loadData]);
+
+    // Ensure CV feed is started when manager opens monitoring tab (Always-On behavior)
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const status = await api.cvStatus();
+                if (!status || !status.running) {
+                    await api.cvStart(isSimulator);
+                    if (mounted) setFeedActive(true);
+                }
+            } catch (e) {
+                console.debug('CV service start failed (may be offline):', e);
+            }
+        })();
+        return () => { mounted = false; };
+    }, []);
 
     // Auto-refresh every 5 seconds
     useEffect(() => {
@@ -134,11 +155,35 @@ export default function ManagerMonitoringTab({ user }) {
         drawer_opened_no_pos: '🗄️',
         suspicious_gesture: '👀',
         customer_present: '👤',
+        currency_anomaly: '💵',
         normal: '✅',
     };
 
     return (
         <div className="space-y-6">
+            {/* ... Modal for Video Clip ... */}
+            {activeClip && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="glass-card w-full max-w-3xl overflow-hidden">
+                        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900">
+                            <h3 className="text-sm font-bold text-white">🎬 Anomaly Video Audit</h3>
+                            <button onClick={() => setActiveClip(null)} className="text-slate-400 hover:text-white">✕</button>
+                        </div>
+                        <div className="aspect-video bg-black">
+                            <video
+                                src={`${api.baseUrl || ''}${activeClip}`}
+                                controls
+                                autoPlay
+                                className="w-full h-full"
+                            />
+                        </div>
+                        <div className="p-4 bg-slate-900 border-t border-white/10">
+                            <p className="text-xs text-slate-400">Clip records 20 seconds of footage surrounding the detected event.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Sub-navigation */}
             <div className="flex items-center justify-between">
                 <div className="flex gap-2">
@@ -176,23 +221,7 @@ export default function ManagerMonitoringTab({ user }) {
                                 </h3>
                             </div>
                             <div className="flex items-center gap-3">
-                                {!feedActive && (
-                                    <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800">
-                                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Mock</span>
-                                        <button
-                                            onClick={() => setIsSimulator(!isSimulator)}
-                                            className={`relative w-8 h-4 rounded-full transition-colors ${isSimulator ? 'bg-blue-600' : 'bg-slate-700'}`}
-                                        >
-                                            <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${isSimulator ? 'left-[18px]' : 'left-0.5'}`} />
-                                        </button>
-                                        <span className="text-[10px] text-slate-300 uppercase font-bold tracking-tighter">Live</span>
-                                    </div>
-                                )}
-                                <button onClick={toggleFeed}
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-medium transition ${feedActive ? 'bg-red-600/20 border border-red-500/30 text-red-400' : 'bg-emerald-600/20 border border-emerald-500/30 text-emerald-400'
-                                        }`}>
-                                    {feedActive ? '⏹ Stop' : '▶ Start'}
-                                </button>
+                                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest bg-slate-800 px-2 py-1 rounded">System Always-On</span>
                             </div>
                         </div>
                         <div className="relative aspect-video bg-slate-950 flex items-center justify-center">
@@ -231,10 +260,18 @@ export default function ManagerMonitoringTab({ user }) {
                                         <div className="flex-1 min-w-0">
                                             <p className="text-xs font-bold truncate">{alert.title}</p>
                                             <p className="text-[11px] text-slate-400 truncate mt-0.5">{alert.description}</p>
-                                            <div className="flex items-center gap-2 mt-1">
+                                            <div className="flex items-center gap-2 mt-2">
                                                 {alert.counter_id && <span className="text-[10px] text-slate-500">📍 {alert.counter_id}</span>}
                                                 <span className="text-[10px] text-slate-600">{new Date(alert.created_at).toLocaleTimeString()}</span>
                                             </div>
+                                            {alert.clip_path && (
+                                                <button
+                                                    onClick={() => setActiveClip(alert.clip_path)}
+                                                    className="mt-2 flex items-center gap-1 bg-white/10 hover:bg-white/20 border border-white/10 px-2 py-1 rounded text-[10px] font-bold text-white transition"
+                                                >
+                                                    🎬 View Clip
+                                                </button>
+                                            )}
                                         </div>
                                         <button
                                             onClick={async () => { await api.acknowledgeAlert(alert.id); loadData(); }}

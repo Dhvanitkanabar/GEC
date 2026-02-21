@@ -7,6 +7,53 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
+const { spawn } = require('child_process');
+
+// ─── Auto-launch CV Service ───────────────────────────────
+const CV_DIR = path.join(__dirname, '..', 'cv-service');
+let cvProcess = null;
+
+function startCvService() {
+    if (cvProcess) return;
+
+    // On Windows use the 'py' launcher to target Python 3.11 which has all deps
+    const isWin = process.platform === 'win32';
+    const cmd = isWin ? 'py' : 'python3';
+    const args = isWin ? ['-3.11', 'app.py'] : ['app.py'];
+
+    console.log(`📹 Starting CV service (${cmd} ${args.join(' ')})...`);
+    cvProcess = spawn(cmd, args, {
+        cwd: CV_DIR,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: {
+            ...process.env,
+            PYTHONIOENCODING: 'utf-8',
+            PYTHONUNBUFFERED: '1'
+        }
+    });
+
+    cvProcess.stdout.on('data', d => process.stdout.write(`[CV] ${d}`));
+    cvProcess.stderr.on('data', d => process.stderr.write(`[CV] ${d}`));
+
+    cvProcess.on('close', (code) => {
+        console.log(`[CV] Process exited (code ${code}). Restarting in 3s...`);
+        cvProcess = null;
+        // Auto-restart unless server is shutting down
+        setTimeout(startCvService, 3000);
+    });
+
+    cvProcess.on('error', (err) => {
+        console.error('[CV] Failed to start:', err.message);
+        console.error('[CV] Make sure Python is installed and cv-service/requirements.txt is installed.');
+        cvProcess = null;
+    });
+}
+
+// Clean up CV process on exit
+process.on('exit', () => { if (cvProcess) cvProcess.kill(); });
+process.on('SIGINT', () => { if (cvProcess) cvProcess.kill(); process.exit(); });
+process.on('SIGTERM', () => { if (cvProcess) cvProcess.kill(); process.exit(); });
+
 
 // ─── Initialize Database ──────────────────────────────────
 const DB_PATH = path.join(__dirname, 'db', 'retail_theft.db');
@@ -80,6 +127,8 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
     console.log(`🚀 Retail Theft Detection Backend running on http://localhost:${PORT}`);
     console.log(`   API endpoints available at http://localhost:${PORT}/api`);
+    // Auto-start the CV service (camera always on)
+    startCvService();
 });
 
 module.exports = app;

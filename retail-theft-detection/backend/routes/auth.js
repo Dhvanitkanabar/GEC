@@ -48,18 +48,21 @@ module.exports = function (db) {
             if (!username || !password) {
                 return res.status(400).json({ error: 'Username and password required' });
             }
-
+            console.log(`[AUTH] Login attempt for username=${username}`);
             const user = db.prepare('SELECT * FROM users WHERE username = ? AND active = 1').get(username);
             if (!user) {
+                console.log(`[AUTH] Login failed (no user / inactive): ${username}`);
                 return res.status(401).json({ error: 'Invalid credentials' });
             }
 
             const valid = await bcrypt.compare(password, user.password_hash);
             if (!valid) {
+                console.log(`[AUTH] Login failed (bad password): ${username}`);
                 return res.status(401).json({ error: 'Invalid credentials' });
             }
 
             const token = generateToken(user);
+            console.log(`[AUTH] Login success: ${username} (role=${user.role})`);
             res.json({
                 id: user.id,
                 username: user.username,

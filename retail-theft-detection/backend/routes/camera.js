@@ -24,7 +24,7 @@ module.exports = function (db) {
                 linked_transaction_id || null);
 
             // Auto-create alerts for suspicious events
-            const suspiciousTypes = ['hand_to_pocket', 'drawer_forced_open', 'drawer_opened_no_pos', 'suspicious_gesture'];
+            const suspiciousTypes = ['hand_to_pocket', 'drawer_forced_open', 'drawer_opened_no_pos', 'suspicious_gesture', 'currency_anomaly'];
             if (suspiciousTypes.includes(event_type)) {
                 const severity = risk_score >= 40 ? 'critical' : risk_score >= 25 ? 'high' : 'medium';
                 const alertId = uuidv4();
@@ -96,6 +96,44 @@ module.exports = function (db) {
                 simulated: true,
                 message: 'Customer presence verified (simulated for demo). Drawer authorized.'
             });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // ─── POST /api/camera/clips — upload anomaly video ───
+    const multer = require('multer');
+    const path = require('path');
+    const fs = require('fs');
+    const storage = multer.diskStorage({
+        destination: (req, file, cb) => {
+            const dir = path.join(__dirname, '..', 'clips');
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            cb(null, dir);
+        },
+        filename: (req, file, cb) => {
+            cb(null, file.originalname);
+        }
+    });
+    const upload = multer({ storage });
+
+    router.post('/clips', upload.single('clip'), (req, res) => {
+        try {
+            const { event_id, filename } = req.body;
+            const clipPath = `/clips/${filename}`;
+
+            // If event_id provided, update the camera_event
+            if (event_id) {
+                db.prepare('UPDATE camera_events SET frame_path = ? WHERE id = ?').run(clipPath, event_id);
+            } else {
+                // If it's a very recent event, try to find the last anomaly
+                const lastEvent = db.prepare('SELECT id FROM camera_events WHERE event_type = "currency_anomaly" ORDER BY timestamp DESC LIMIT 1').get();
+                if (lastEvent) {
+                    db.prepare('UPDATE camera_events SET frame_path = ? WHERE id = ?').run(clipPath, lastEvent.id);
+                }
+            }
+
+            res.json({ status: 'ok', clip_path: clipPath });
         } catch (err) {
             res.status(500).json({ error: err.message });
         }

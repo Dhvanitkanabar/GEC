@@ -220,6 +220,15 @@ module.exports = function (db) {
                 `Change given: ₹${changeAmount}`
             );
 
+            // Notify CV service about expected change
+            try {
+                fetch('http://localhost:5001/api/cv/expected-change', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: changeAmount })
+                }).catch(e => console.log('CV Service notification failed (possibly offline)'));
+            } catch (e) { /* ignore */ }
+
             appendLog(req.params.id, 'cash_payment', req.user.id, {
                 cash_received, change_given: changeAmount, total: txn.total,
                 drawer_balance: finalBalance, customer_verified: true
