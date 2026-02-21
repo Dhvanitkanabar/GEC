@@ -1,0 +1,26 @@
+
+> retail-theft-vis@0.1.0 lint
+> eslint
+
+
+C:\Users\Admin\Desktop\GEC gandhinagar\retail-theft-vis\src\app\page.tsx
+   7:56  warning  'Monitor' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  16:51  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\Admin\Desktop\GEC gandhinagar\retail-theft-vis\src\app\page.tsx:16:51
+  14 |   const [events, setEvents] = useState<string[]>([]);
+  15 |
+> 16 |   const lastMousePos = useRef({ x: 0, y: 0, time: Date.now() });
+     |                                                   ^^^^^^^^^^ Cannot call impure function
+  17 |   const clickTimes = useRef<number[]>([]);
+  18 |
+  19 |   // High risk threshold  react-hooks/purity
+
+C:\Users\Admin\Desktop\GEC gandhinagar\retail-theft-vis\src\components\RiskGauge.tsx
+  1:17  warning  'useState' is defined but never used   @typescript-eslint/no-unused-vars
+  1:27  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 4 problems (1 error, 3 warnings)
+
