@@ -1,0 +1,35 @@
+
+> retail-theft-vis@0.1.0 lint
+> eslint
+
+
+C:\Users\Admin\Desktop\GEC gandhinagar\retail-theft-vis\src\app\page.tsx
+  160:58  error  Parsing error: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+
+C:\Users\Admin\Desktop\GEC gandhinagar\retail-theft-vis\src\components\InstantAlert.tsx
+  2:10  warning  'Siren' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\GEC gandhinagar\retail-theft-vis\src\components\ProcessingEngine.tsx
+   4:5   warning  'MousePointer2' is defined but never used  @typescript-eslint/no-unused-vars
+  15:79  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+C:\Users\Admin\Desktop\GEC gandhinagar\retail-theft-vis\src\components\RiskGauge.tsx
+  14:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Admin\Desktop\GEC gandhinagar\retail-theft-vis\src\components\RiskGauge.tsx:14:9
+  12 |         if (score > 60) factors.push('shortcuts');
+  13 |         if (score > 80) factors.push('focus');
+> 14 |         setActiveFactors(factors);
+     |         ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  15 |     }, [score]);
+  16 |
+  17 |     const getRiskLevel = (s: number) => {  react-hooks/set-state-in-effect
+
+Γ£û 5 problems (3 errors, 2 warnings)
+
